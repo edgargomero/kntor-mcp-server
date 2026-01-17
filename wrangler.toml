@@ -1,0 +1,25 @@
+# Kntor MCP Server - Cloudflare Worker
+# Deployed to: mcp.kntor.io
+
+name = "kntor-mcp-server"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Routes (configure after first deploy)
+# routes = [
+#   { pattern = "mcp.kntor.io", custom_domain = true }
+# ]
+
+[vars]
+# Non-sensitive environment variables
+ENVIRONMENT = "production"
+
+# Secrets (set via `wrangler secret put <NAME>`):
+# - SUPABASE_URL
+# - SUPABASE_ANON_KEY
+# - SUPABASE_SERVICE_ROLE_KEY
+
+[dev]
+port = 8787
+local_protocol = "http"
