@@ -6,7 +6,6 @@
 
 import { z } from 'zod'
 import type { Env, MCPContext, ToolResult } from '../types'
-import { createServiceClient } from '../utils/supabase'
 import { logUsage } from '../utils/metering'
 
 /**
@@ -126,9 +125,6 @@ export async function executeCreateCustomer(
       }
     }
 
-    // Create Supabase client with service_role (brand isolation via brand_id)
-    const supabase = createServiceClient(env)
-
     // Generate unique customer code
     const customerCode = generateCustomerCode(input.customer_type)
 
@@ -151,20 +147,29 @@ export async function executeCreateCustomer(
       updated_at: new Date().toISOString()
     }
 
-    // Insert customer
-    const { data, error } = await supabase
-      .from('customers')
-      .insert(customerData)
-      .select('id, customer_code, customer_type, first_name, last_name, company_name, email, phone, status, created_at')
-      .single()
+    // Insert customer using REST API directly
+    const response = await fetch(`${env.SUPABASE_URL}/rest/v1/customers`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify(customerData)
+    })
 
-    if (error) {
-      console.error('[create_customer] Database error:', error)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('[create_customer] Database error:', errorText)
       return {
         success: false,
-        error: `Failed to create customer: ${error.message}`
+        error: `Failed to create customer: ${errorText}`
       }
     }
+
+    const result = await response.json()
+    const data = Array.isArray(result) ? result[0] : result
 
     // Log usage
     await logUsage({
