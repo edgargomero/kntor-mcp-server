@@ -22,7 +22,7 @@
  * }
  */
 
-const SERVER_URL = 'https://kntor-mcp-server.edgar-gomero.workers.dev/mcp';
+const SERVER_URL = process.env.KNTOR_MCP_URL || 'https://mcp.kntor.io/mcp';
 const API_KEY = process.env.KNTOR_API_KEY;
 
 // Validate API key

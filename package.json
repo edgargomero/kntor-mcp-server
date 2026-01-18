@@ -1,7 +1,7 @@
 {
   "name": "kntor-mcp",
   "version": "1.0.0",
-  "description": "MCP client for Kntor.io ERP - Connect AI agents to healthcare management",
+  "description": "MCP client for Kntor.io ERP - Connect AI agents to your business management system",
   "type": "module",
   "bin": {
     "kntor-mcp": "./bin/kntor-mcp.mjs"
@@ -28,7 +28,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/kntor/kntor-mcp-server"
+    "url": "https://github.com/edgargomero/kntor-mcp-server"
   },
   "engines": {
     "node": ">=18.0.0"
