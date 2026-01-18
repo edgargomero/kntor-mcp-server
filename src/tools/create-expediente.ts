@@ -6,7 +6,6 @@
 
 import { z } from 'zod'
 import type { Env, MCPContext, ToolResult } from '../types'
-import { createServiceClient } from '../utils/supabase'
 import { logUsage } from '../utils/metering'
 
 /**
@@ -135,9 +134,6 @@ export async function executeCreateExpediente(
         }
       }
     }
-
-    // Create Supabase client with service_role (brand isolation via brand_id)
-    const supabase = createServiceClient(env)
 
     // Generate unique expediente code
     const expedienteCodigo = generateExpedienteCode(input.expediente_tipo)

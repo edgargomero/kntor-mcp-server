@@ -6,7 +6,6 @@
 
 import { z } from 'zod'
 import type { Env, MCPContext, ToolResult } from '../types'
-import { createServiceClient } from '../utils/supabase'
 import { logUsage } from '../utils/metering'
 
 /**
@@ -78,9 +77,6 @@ export async function executeSearchCustomers(
   const startTime = Date.now()
 
   try {
-    // Create Supabase client with service_role (brand isolation via brand_id)
-    const supabase = createServiceClient(env)
-
     // Build URL parameters for search
     const columns = 'id,customer_code,customer_type,first_name,last_name,company_name,email,phone,rut,status,customer_category,total_orders,total_sales,last_order_date,created_at'
     let url = `${env.SUPABASE_URL}/rest/v1/customers?select=${columns}`
