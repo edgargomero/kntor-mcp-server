@@ -2,7 +2,45 @@
 
 Model Context Protocol (MCP) server for Kntor.io Healthcare ERP. Allows AI agents (Claude, n8n, WhatsApp bots) to interact with the ERP system.
 
-## Quick Start
+## Claude Desktop Setup
+
+### Option 1: Using npx (Recommended)
+
+Add to your Claude Desktop config (`%APPDATA%\Claude\claude_desktop_config.json` on Windows, `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "kntor-erp": {
+      "command": "npx",
+      "args": ["-y", "kntor-mcp"],
+      "env": {
+        "KNTOR_API_KEY": "kntor_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+### Option 2: Using local installation
+
+```json
+{
+  "mcpServers": {
+    "kntor-erp": {
+      "command": "node",
+      "args": ["C:\\path\\to\\kntor-mcp-server\\bin\\kntor-mcp.mjs"],
+      "env": {
+        "KNTOR_API_KEY": "kntor_your_api_key_here"
+      }
+    }
+  }
+}
+```
+
+After saving the config, restart Claude Desktop.
+
+## Server Development
 
 ```bash
 # Install dependencies

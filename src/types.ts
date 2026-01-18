@@ -18,12 +18,16 @@ export interface ApiKeyValidationResult {
   api_key_id?: string
   brand_id?: string
   brand_name?: string
-  brand_slug?: string
+  brand_domain?: string
   key_name?: string
   tier?: 'free' | 'starter' | 'pro' | 'enterprise'
   monthly_limit?: number
   current_usage?: number
   remaining_calls?: number
+  // User info from API key creator
+  user_id?: string
+  user_email?: string
+  user_role?: string
 }
 
 /**
@@ -51,8 +55,9 @@ export interface MCPContext {
   brandId: string
   brandName: string
   tier: string
-  userId?: string      // From JWT if provided
-  userEmail?: string
+  userId: string       // From API key creator
+  userEmail: string
+  userRole: string
 }
 
 /**

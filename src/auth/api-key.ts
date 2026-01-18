@@ -25,38 +25,55 @@ export async function validateApiKey(
   }
 
   try {
-    // Call the RPC with service_role (bypasses RLS)
-    const response = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/rpc/validate_mcp_api_key`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
-          'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
-        },
-        body: JSON.stringify({ p_api_key: apiKey })
+    // Debug: Log environment availability
+    console.log('[validateApiKey] SUPABASE_URL defined:', !!env.SUPABASE_URL)
+    console.log('[validateApiKey] SERVICE_ROLE_KEY defined:', !!env.SUPABASE_SERVICE_ROLE_KEY)
+
+    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('[validateApiKey] Missing environment variables')
+      return {
+        valid: false,
+        error: 'config_error',
+        message: 'Server configuration error: missing Supabase credentials'
       }
-    )
+    }
+
+    const rpcUrl = `${env.SUPABASE_URL}/rest/v1/rpc/validate_mcp_api_key`
+    console.log('[validateApiKey] Calling RPC:', rpcUrl)
+
+    // Call the RPC with service_role (bypasses RLS)
+    const response = await fetch(rpcUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+        'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+      },
+      body: JSON.stringify({ p_api_key: apiKey })
+    })
+
+    console.log('[validateApiKey] Response status:', response.status)
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('API key validation failed:', errorText)
+      console.error('[validateApiKey] RPC failed:', response.status, errorText)
       return {
         valid: false,
         error: 'validation_error',
-        message: 'Failed to validate API key'
+        message: `Failed to validate API key: ${response.status}`
       }
     }
 
     const result: ApiKeyValidationResult = await response.json()
+    console.log('[validateApiKey] Result valid:', result.valid)
     return result
   } catch (error) {
-    console.error('API key validation error:', error)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    console.error('[validateApiKey] Exception:', errorMessage)
     return {
       valid: false,
       error: 'internal_error',
-      message: 'Internal server error during validation'
+      message: `Internal server error: ${errorMessage}`
     }
   }
 }

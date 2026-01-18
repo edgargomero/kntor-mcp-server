@@ -139,6 +139,145 @@ export function createServiceClient(env: Env) {
 }
 
 /**
+ * Creates a user-authenticated client
+ * Uses user's JWT to preserve RLS and auth.uid()
+ */
+export function createUserClient(env: Env, userJwt: string) {
+  const baseHeaders = {
+    'apikey': env.SUPABASE_ANON_KEY,
+    'Authorization': `Bearer ${userJwt}`
+  }
+
+  return {
+    from: (table: string) => {
+      let queryUrl = `${env.SUPABASE_URL}/rest/v1/${table}`
+      const filters: string[] = []
+      let selectColumns = '*'
+      let orderBy: string | null = null
+      let limitCount: number | null = null
+      let isSingle = false
+
+      const builder = {
+        select: (columns = '*') => {
+          selectColumns = columns
+          return builder
+        },
+        eq: (column: string, value: unknown) => {
+          filters.push(`${column}=eq.${encodeURIComponent(String(value))}`)
+          return builder
+        },
+        or: (orFilter: string) => {
+          filters.push(`or=(${orFilter})`)
+          return builder
+        },
+        order: (column: string, options?: { ascending?: boolean }) => {
+          orderBy = `${column}.${options?.ascending !== false ? 'asc' : 'desc'}`
+          return builder
+        },
+        limit: (count: number) => {
+          limitCount = count
+          return builder
+        },
+        single: () => {
+          isSingle = true
+          limitCount = 1
+          return builder
+        },
+        insert: async (data: Record<string, unknown> | Record<string, unknown>[]) => {
+          try {
+            const response = await fetch(queryUrl, {
+              method: 'POST',
+              headers: {
+                ...baseHeaders,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+              },
+              body: JSON.stringify(data)
+            })
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}))
+              return { data: null, error: { message: errorData.message || response.statusText } }
+            }
+            const result = await response.json()
+            return { data: result, error: null }
+          } catch (error) {
+            return { data: null, error: { message: error instanceof Error ? error.message : 'Unknown error' } }
+          }
+        },
+        update: async (data: Record<string, unknown>) => {
+          try {
+            let url = `${queryUrl}?${filters.join('&')}`
+            const response = await fetch(url, {
+              method: 'PATCH',
+              headers: {
+                ...baseHeaders,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+              },
+              body: JSON.stringify(data)
+            })
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}))
+              return { data: null, error: { message: errorData.message || response.statusText } }
+            }
+            const result = await response.json()
+            return { data: isSingle ? result[0] : result, error: null }
+          } catch (error) {
+            return { data: null, error: { message: error instanceof Error ? error.message : 'Unknown error' } }
+          }
+        },
+        delete: async () => {
+          try {
+            let url = `${queryUrl}?${filters.join('&')}`
+            const response = await fetch(url, {
+              method: 'DELETE',
+              headers: baseHeaders
+            })
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}))
+              return { error: { message: errorData.message || response.statusText } }
+            }
+            return { error: null }
+          } catch (error) {
+            return { error: { message: error instanceof Error ? error.message : 'Unknown error' } }
+          }
+        },
+        then: async (resolve: (value: { data: unknown; error: unknown; count?: number }) => void) => {
+          try {
+            let url = `${queryUrl}?select=${encodeURIComponent(selectColumns)}`
+            if (filters.length > 0) {
+              url += `&${filters.join('&')}`
+            }
+            if (orderBy) {
+              url += `&order=${orderBy}`
+            }
+            if (limitCount) {
+              url += `&limit=${limitCount}`
+            }
+
+            const response = await fetch(url, { headers: baseHeaders })
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}))
+              return resolve({ data: null, error: { message: errorData.message || response.statusText } })
+            }
+            const result = await response.json()
+            return resolve({
+              data: isSingle ? (result[0] || null) : result,
+              error: null,
+              count: Array.isArray(result) ? result.length : undefined
+            })
+          } catch (error) {
+            return resolve({ data: null, error: { message: error instanceof Error ? error.message : 'Unknown error' } })
+          }
+        }
+      }
+
+      return builder
+    }
+  }
+}
+
+/**
  * Parse PostgreSQL timestamp to ISO string
  */
 export function parseTimestamp(timestamp: string): Date {

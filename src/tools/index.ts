@@ -1,32 +1,48 @@
 /**
  * MCP Tools Registry
  *
- * Central registry of all available MCP tools
+ * Central registry of all available MCP tools for Kntor.io ERP
  */
 
 import type { Env, MCPContext, ToolResult } from '../types'
 
 // Import tools
 import {
-  getAvailabilityTool,
-  executeGetAvailability,
-  GetAvailabilityInputSchema,
-  type GetAvailabilityInput
-} from './get-availability'
+  createCustomerTool,
+  executeCreateCustomer,
+  CreateCustomerInputSchema,
+  type CreateCustomerInput
+} from './create-customer'
 
 import {
-  scheduleAppointmentTool,
-  executeScheduleAppointment,
-  ScheduleAppointmentInputSchema,
-  type ScheduleAppointmentInput
-} from './schedule-appointment'
+  searchCustomersTool,
+  executeSearchCustomers,
+  SearchCustomersInputSchema,
+  type SearchCustomersInput
+} from './search-customers'
+
+import {
+  createExpedienteTool,
+  executeCreateExpediente,
+  CreateExpedienteInputSchema,
+  type CreateExpedienteInput
+} from './create-expediente'
+
+import {
+  manageExpedienteServicesTool,
+  executeManageExpedienteServices,
+  ManageExpedienteServicesInputSchema,
+  type ManageExpedienteServicesInput
+} from './manage-expediente-services'
 
 /**
  * All available tools
  */
 export const tools = [
-  getAvailabilityTool,
-  scheduleAppointmentTool
+  createCustomerTool,
+  searchCustomersTool,
+  createExpedienteTool,
+  manageExpedienteServicesTool
 ]
 
 /**
@@ -42,13 +58,21 @@ type ToolExecutor = (
  * Map of tool names to their executors
  */
 const toolExecutors: Record<string, ToolExecutor> = {
-  get_availability: async (input, context, env) => {
-    const parsed = GetAvailabilityInputSchema.parse(input)
-    return executeGetAvailability(parsed, context, env)
+  create_customer: async (input, context, env) => {
+    const parsed = CreateCustomerInputSchema.parse(input)
+    return executeCreateCustomer(parsed, context, env)
   },
-  schedule_appointment: async (input, context, env) => {
-    const parsed = ScheduleAppointmentInputSchema.parse(input)
-    return executeScheduleAppointment(parsed, context, env)
+  search_customers: async (input, context, env) => {
+    const parsed = SearchCustomersInputSchema.parse(input)
+    return executeSearchCustomers(parsed, context, env)
+  },
+  create_expediente: async (input, context, env) => {
+    const parsed = CreateExpedienteInputSchema.parse(input)
+    return executeCreateExpediente(parsed, context, env)
+  },
+  manage_expediente_services: async (input, context, env) => {
+    const parsed = ManageExpedienteServicesInputSchema.parse(input)
+    return executeManageExpedienteServices(parsed, context, env)
   }
 }
 
@@ -89,4 +113,9 @@ export async function executeTool(
 }
 
 // Re-export types
-export type { GetAvailabilityInput, ScheduleAppointmentInput }
+export type {
+  CreateCustomerInput,
+  SearchCustomersInput,
+  CreateExpedienteInput,
+  ManageExpedienteServicesInput
+}

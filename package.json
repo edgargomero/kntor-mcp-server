@@ -1,20 +1,43 @@
 {
-  "name": "kntor-mcp-server",
+  "name": "kntor-mcp",
   "version": "1.0.0",
-  "description": "MCP Server for Kntor.io ERP - Allows AI agents to interact with the healthcare ERP",
+  "description": "MCP client for Kntor.io ERP - Connect AI agents to healthcare management",
   "type": "module",
+  "bin": {
+    "kntor-mcp": "./bin/kntor-mcp.mjs"
+  },
+  "files": [
+    "bin/",
+    "README.md"
+  ],
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.4",
-    "zod": "^3.22.4"
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "kntor",
+    "healthcare",
+    "erp",
+    "ai",
+    "claude"
+  ],
+  "author": "Kntor.io",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kntor/kntor-mcp-server"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241127.0",
+    "@modelcontextprotocol/sdk": "^1.0.4",
     "typescript": "^5.8.3",
-    "wrangler": "^4.59.2"
+    "wrangler": "^4.59.2",
+    "zod": "^3.22.4"
   }
 }
