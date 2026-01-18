@@ -32,54 +32,61 @@ export const createCustomerTool = {
   name: 'create_customer',
   description: `Create a new customer (client) in the system.
 
-For individuals: provide first_name and last_name
-For companies: provide company_name
+REQUIRED FIELDS by customer_type:
+- If customer_type="individual": MUST provide first_name AND last_name
+- If customer_type="company": MUST provide company_name
 
-Returns the created customer with their unique customer_code.
-Authentication is handled via API key - no JWT required.`,
+OPTIONAL FIELDS (for any type):
+- email: Email address
+- phone: Phone number (min 8 chars)
+- rut: Chilean RUT/tax ID (e.g., "12.345.678-9")
+- tax_id: Tax identification number
+- notes: Additional notes
+
+Returns the created customer with their unique customer_code.`,
   inputSchema: {
     type: 'object',
     properties: {
       customer_type: {
         type: 'string',
         enum: ['individual', 'company'],
-        description: 'Type of customer: individual person or company'
+        description: 'REQUIRED. Type of customer: "individual" for persons, "company" for businesses'
       },
       first_name: {
         type: 'string',
-        description: 'First name (required for individuals)',
+        description: 'REQUIRED for individual. Person\'s first name',
         maxLength: 100
       },
       last_name: {
         type: 'string',
-        description: 'Last name (required for individuals)',
+        description: 'REQUIRED for individual. Person\'s last name',
         maxLength: 100
       },
       company_name: {
         type: 'string',
-        description: 'Company name (required for companies)',
+        description: 'REQUIRED for company. Business/company name',
         maxLength: 200
       },
       email: {
         type: 'string',
         format: 'email',
-        description: 'Email address'
+        description: 'Optional. Contact email address'
       },
       phone: {
         type: 'string',
-        description: 'Phone number'
+        description: 'Optional. Phone number (8-20 characters)'
       },
       rut: {
         type: 'string',
-        description: 'Chilean RUT/tax ID'
+        description: 'Optional. Chilean RUT/tax ID (e.g., "12.345.678-9")'
       },
       tax_id: {
         type: 'string',
-        description: 'Tax identification number'
+        description: 'Optional. Tax identification number for other countries'
       },
       notes: {
         type: 'string',
-        description: 'Additional notes about the customer',
+        description: 'Optional. Additional notes about the customer',
         maxLength: 1000
       }
     },

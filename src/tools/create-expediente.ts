@@ -30,46 +30,56 @@ export const createExpedienteTool = {
   name: 'create_expediente',
   description: `Create a new expediente (case file/business record) in the system.
 
-An expediente is a record that tracks business activities and services for a customer. It can represent projects, contracts, service agreements, or any business relationship.
+An expediente tracks business activities and services for a customer (projects, contracts, service agreements, etc.).
 
-Returns the created expediente with its unique code.
-Authentication is handled via API key - no JWT required.`,
+REQUIRED FIELDS:
+- expediente_nombre: Name/title (e.g., "Proyecto Marketing 2026")
+- expediente_tipo: Type (proyecto, servicio, contrato, consulta, viaje, etc.)
+- start_date: Start date in YYYY-MM-DD format
+
+OPTIONAL FIELDS:
+- customer_id: UUID of associated customer (use search_customers first to get ID)
+- end_date: End date in YYYY-MM-DD format
+- description: Detailed description
+- notes: Internal notes
+
+Returns the created expediente with its unique code (e.g., "PRO-2601-ABC123").`,
   inputSchema: {
     type: 'object',
     properties: {
       expediente_nombre: {
         type: 'string',
-        description: 'Name/title of the expediente (e.g., "Proyecto Marketing 2026 - Empresa ABC")',
+        description: 'REQUIRED. Name/title of the expediente',
         minLength: 3,
         maxLength: 200
       },
       expediente_tipo: {
         type: 'string',
-        description: 'Type of expediente (e.g., proyecto, servicio, contrato, consulta)'
+        description: 'REQUIRED. Type: proyecto, servicio, contrato, consulta, viaje, etc.'
       },
       customer_id: {
         type: 'string',
         format: 'uuid',
-        description: 'UUID of the associated customer (use search_customers to find)'
+        description: 'Optional. UUID of the associated customer (use search_customers to find)'
       },
       start_date: {
         type: 'string',
         pattern: '^\\d{4}-\\d{2}-\\d{2}$',
-        description: 'Start date in YYYY-MM-DD format'
+        description: 'REQUIRED. Start date in YYYY-MM-DD format (e.g., "2026-01-18")'
       },
       end_date: {
         type: 'string',
         pattern: '^\\d{4}-\\d{2}-\\d{2}$',
-        description: 'End date in YYYY-MM-DD format (optional)'
+        description: 'Optional. End date in YYYY-MM-DD format'
       },
       description: {
         type: 'string',
-        description: 'Detailed description of the expediente',
+        description: 'Optional. Detailed description of the expediente',
         maxLength: 2000
       },
       notes: {
         type: 'string',
-        description: 'Internal notes',
+        description: 'Optional. Internal notes',
         maxLength: 1000
       }
     },
