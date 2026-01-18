@@ -27,37 +27,45 @@ export const searchCustomersTool = {
   name: 'search_customers',
   description: `Search for customers (clients) in the system.
 
-You can search by:
-- Name (first_name, last_name, company_name)
-- Email
-- Phone number
-- RUT (Chilean tax ID)
-- Customer code
+ALL FIELDS ARE OPTIONAL - call with no parameters to list recent customers.
 
-Optionally filter by customer_type or status.
-Authentication is handled via API key - no JWT required.`,
+SEARCH OPTIONS:
+- query: Text to search (searches name, email, phone, RUT, customer_code)
+- customer_type: Filter by "individual" or "company"
+- status: Filter by "active", "inactive", "lead", or "prospect"
+- limit: Max results (default 20, max 50)
+
+EXAMPLES:
+- Search by name: query="Juan"
+- Search by RUT: query="12.345.678"
+- Search by email: query="@gmail.com"
+- List all companies: customer_type="company"
+- List active only: status="active"
+
+RETURNS: Array of customers with id, customer_code, name, email, phone, rut, status.
+Use the returned "id" (UUID) when creating expedientes with customer_id.`,
   inputSchema: {
     type: 'object',
     properties: {
       query: {
         type: 'string',
-        description: 'Search query - searches across name, email, phone, RUT, and customer code',
+        description: 'Optional. Search text - matches name, email, phone, RUT, or customer_code',
         minLength: 2,
         maxLength: 100
       },
       customer_type: {
         type: 'string',
         enum: ['individual', 'company'],
-        description: 'Filter by customer type'
+        description: 'Optional. Filter: "individual" for persons, "company" for businesses'
       },
       status: {
         type: 'string',
         enum: ['active', 'inactive', 'lead', 'prospect'],
-        description: 'Filter by customer status'
+        description: 'Optional. Filter by status'
       },
       limit: {
         type: 'integer',
-        description: 'Maximum number of results (default: 20, max: 50)',
+        description: 'Optional. Max results to return (default: 20, max: 50)',
         minimum: 1,
         maximum: 50
       }

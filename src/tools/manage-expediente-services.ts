@@ -34,78 +34,98 @@ export type ManageExpedienteServicesInput = z.infer<typeof ManageExpedienteServi
  */
 export const manageExpedienteServicesTool = {
   name: 'manage_expediente_services',
-  description: `Manage services within an expediente.
+  description: `Manage services within an expediente (case file).
 
-Actions:
-- list_types: Get available service types for this brand (use first to know valid service_type_id values)
-- list: Get all services in an expediente
-- add: Add a new service to an expediente
-- update: Update an existing service
-- remove: Remove a service from an expediente
+ACTIONS AND REQUIRED FIELDS:
 
-Service types vary by brand profile (tourism, legal, health, education, etc.).
-Authentication is handled via API key - no JWT required.`,
+1. action="list_types" - Get available service types for this brand
+   Required: (none)
+   Returns: Array of {id, code, name, description}
+   TIP: Call this FIRST to know valid service_type_id values
+
+2. action="list" - List all services in an expediente
+   Required: expediente_id
+   Returns: Array of services with totals
+
+3. action="add" - Add a new service
+   Required: expediente_id, service_name
+   Optional: service_type_id, service_description, start_date, end_date,
+             unit_price, quantity, provider_name, confirmation_number
+
+4. action="update" - Update an existing service
+   Required: service_id
+   Optional: Any field you want to change
+
+5. action="remove" - Remove a service
+   Required: service_id
+
+PRICING: If unit_price and quantity are provided, subtotal/total are calculated automatically.
+
+WORKFLOW EXAMPLE:
+1. Call with action="list_types" to see available service types
+2. Call with action="add", expediente_id="...", service_name="Hotel 3 noches", unit_price=50000, quantity=3
+3. Call with action="list", expediente_id="..." to verify`,
   inputSchema: {
     type: 'object',
     properties: {
       action: {
         type: 'string',
         enum: ['list_types', 'list', 'add', 'update', 'remove'],
-        description: 'Action to perform'
+        description: 'REQUIRED. Action: list_types, list, add, update, or remove'
       },
       expediente_id: {
         type: 'string',
         format: 'uuid',
-        description: 'UUID of the expediente (required for list/add/update/remove)'
+        description: 'Required for list/add. UUID of the expediente'
       },
       service_id: {
         type: 'string',
         format: 'uuid',
-        description: 'UUID of the service (required for update/remove)'
+        description: 'Required for update/remove. UUID of the service'
       },
       service_type_id: {
         type: 'string',
         format: 'uuid',
-        description: 'UUID of the service type (use list_types to get available types)'
+        description: 'Optional. UUID from list_types action'
       },
       service_name: {
         type: 'string',
-        description: 'Name of the service (required for add)',
+        description: 'Required for add. Name of the service (e.g., "Hotel Marriott 3 noches")',
         maxLength: 200
       },
       service_description: {
         type: 'string',
-        description: 'Description of the service',
+        description: 'Optional. Detailed description',
         maxLength: 1000
       },
       start_date: {
         type: 'string',
         pattern: '^\\d{4}-\\d{2}-\\d{2}$',
-        description: 'Service start date (YYYY-MM-DD)'
+        description: 'Optional. Service start date (YYYY-MM-DD)'
       },
       end_date: {
         type: 'string',
         pattern: '^\\d{4}-\\d{2}-\\d{2}$',
-        description: 'Service end date (YYYY-MM-DD)'
+        description: 'Optional. Service end date (YYYY-MM-DD)'
       },
       unit_price: {
         type: 'number',
-        description: 'Price per unit',
+        description: 'Optional. Price per unit (e.g., 50000)',
         minimum: 0
       },
       quantity: {
         type: 'integer',
-        description: 'Quantity (default: 1)',
+        description: 'Optional. Quantity (default: 1)',
         minimum: 1
       },
       provider_name: {
         type: 'string',
-        description: 'Service provider name',
+        description: 'Optional. Provider/vendor name',
         maxLength: 200
       },
       confirmation_number: {
         type: 'string',
-        description: 'Booking confirmation number',
+        description: 'Optional. Booking/reservation confirmation number',
         maxLength: 100
       }
     },
