@@ -276,8 +276,256 @@ export default {
       return new Response(null, { status: 404, headers: corsHeaders })
     }
 
-    // MCP message endpoint
-    if (url.pathname === '/mcp' || url.pathname === '/messages') {
+    // MCP message endpoint - supports both JSON and Streamable HTTP transport
+    if (url.pathname === '/mcp') {
+      // Handle GET request for Streamable HTTP transport (session initialization)
+      if (request.method === 'GET') {
+        const acceptHeader = request.headers.get('Accept') || ''
+
+        // If client accepts SSE, this is Streamable HTTP transport initialization
+        if (acceptHeader.includes('text/event-stream')) {
+          // Validate API key first
+          const apiKey = extractApiKey(request)
+
+          if (!apiKey) {
+            return new Response(
+              JSON.stringify(
+                jsonRPCError(null, -32000, 'API key required', {
+                  hint: 'Provide API key in x-api-key header or as Bearer token'
+                })
+              ),
+              {
+                status: 401,
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...corsHeaders
+                }
+              }
+            )
+          }
+
+          const apiKeyResult = await validateApiKey(apiKey, env)
+
+          if (!apiKeyResult.valid) {
+            return new Response(
+              JSON.stringify(
+                jsonRPCError(null, -32000, apiKeyResult.message || 'Invalid API key')
+              ),
+              {
+                status: 401,
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...corsHeaders
+                }
+              }
+            )
+          }
+
+          // Generate session ID for Streamable HTTP
+          const sessionId = crypto.randomUUID()
+
+          // Create SSE stream for Streamable HTTP transport
+          const { readable, writable } = new TransformStream()
+          const writer = writable.getWriter()
+          const encoder = new TextEncoder()
+
+          // Keep connection alive
+          ;(async () => {
+            try {
+              // Send initial ping to establish connection
+              await writer.write(encoder.encode(': connected\n\n'))
+
+              // Keep connection alive with periodic pings
+              const pingInterval = setInterval(async () => {
+                try {
+                  await writer.write(encoder.encode(': ping\n\n'))
+                } catch {
+                  clearInterval(pingInterval)
+                }
+              }, 30000)
+
+              // Keep the connection open for 5 minutes max
+              await new Promise(resolve => setTimeout(resolve, 5 * 60 * 1000))
+              clearInterval(pingInterval)
+              await writer.close()
+            } catch (error) {
+              console.error('Streamable HTTP stream error:', error)
+              try {
+                await writer.close()
+              } catch { /* ignore */ }
+            }
+          })()
+
+          return new Response(readable, {
+            headers: {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive',
+              'Mcp-Session-Id': sessionId,
+              ...corsHeaders
+            }
+          })
+        }
+
+        // Regular GET returns server info
+        return new Response(
+          JSON.stringify({
+            name: 'kntor-mcp-server',
+            version: '1.0.0',
+            description: 'MCP Server for Kntor.io ERP',
+            transport: ['streamable-http', 'http'],
+            endpoints: {
+              mcp: '/mcp'
+            }
+          }),
+          {
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          }
+        )
+      }
+
+      // Handle DELETE request for session termination (Streamable HTTP)
+      if (request.method === 'DELETE') {
+        const sessionId = request.headers.get('Mcp-Session-Id')
+        // Just acknowledge the session termination
+        return new Response(null, {
+          status: 204,
+          headers: corsHeaders
+        })
+      }
+
+      // POST request - handle MCP messages
+      // Validate API key
+      const apiKey = extractApiKey(request)
+
+      if (!apiKey) {
+        return new Response(
+          JSON.stringify(
+            jsonRPCError(null, -32000, 'API key required', {
+              hint: 'Provide API key in x-api-key header or as Bearer token'
+            })
+          ),
+          {
+            status: 401,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          }
+        )
+      }
+
+      const apiKeyResult = await validateApiKey(apiKey, env)
+
+      if (!apiKeyResult.valid) {
+        return new Response(
+          JSON.stringify(
+            jsonRPCError(null, -32000, apiKeyResult.message || 'Invalid API key', {
+              error: apiKeyResult.error
+            })
+          ),
+          {
+            status: 401,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          }
+        )
+      }
+
+      // Parse JSON-RPC message(s) - can be single or batch
+      let body: unknown
+
+      try {
+        body = await request.json()
+      } catch {
+        return new Response(
+          JSON.stringify(jsonRPCError(null, -32700, 'Parse error')),
+          {
+            status: 400,
+            headers: {
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          }
+        )
+      }
+
+      // Check if client wants SSE response (Streamable HTTP)
+      const acceptHeader = request.headers.get('Accept') || ''
+      const wantsSSE = acceptHeader.includes('text/event-stream')
+      const sessionId = request.headers.get('Mcp-Session-Id') || crypto.randomUUID()
+
+      // Handle batch requests
+      const messages = Array.isArray(body) ? body : [body]
+      const responses: JSONRPCResponse[] = []
+
+      for (const message of messages) {
+        // Validate JSON-RPC format
+        if (!message || message.jsonrpc !== '2.0' || !message.method) {
+          responses.push(jsonRPCError(message?.id ?? null, -32600, 'Invalid Request'))
+          continue
+        }
+
+        // Handle the message
+        const response = await handleMCPMessage(message, apiKeyResult, env)
+
+        // Only add response if it has an id (not a notification)
+        if (message.id !== undefined) {
+          responses.push(response)
+        }
+      }
+
+      // If client wants SSE, send as event stream
+      if (wantsSSE) {
+        const { readable, writable } = new TransformStream()
+        const writer = writable.getWriter()
+        const encoder = new TextEncoder()
+
+        ;(async () => {
+          try {
+            for (const response of responses) {
+              await writer.write(
+                encoder.encode(`event: message\ndata: ${JSON.stringify(response)}\n\n`)
+              )
+            }
+            await writer.close()
+          } catch (error) {
+            console.error('SSE response error:', error)
+            try {
+              await writer.close()
+            } catch { /* ignore */ }
+          }
+        })()
+
+        return new Response(readable, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Mcp-Session-Id': sessionId,
+            ...corsHeaders
+          }
+        })
+      }
+
+      // Return JSON response
+      const jsonResponse = Array.isArray(body) ? responses : responses[0]
+
+      return new Response(JSON.stringify(jsonResponse), {
+        headers: {
+          'Content-Type': 'application/json',
+          'Mcp-Session-Id': sessionId,
+          ...corsHeaders
+        }
+      })
+    }
+
+    // Legacy /messages endpoint for backwards compatibility
+    if (url.pathname === '/messages') {
       // Validate API key
       const apiKey = extractApiKey(request)
 
@@ -422,94 +670,6 @@ export default {
       })
     }
 
-    // Messages endpoint for SSE transport (POST /messages?sessionId=xxx)
-    if (url.pathname === '/messages' && request.method === 'POST') {
-      // Validate API key
-      const apiKey = extractApiKey(request)
-
-      if (!apiKey) {
-        return new Response(
-          JSON.stringify(
-            jsonRPCError(null, -32000, 'API key required', {
-              hint: 'Provide API key in x-api-key header'
-            })
-          ),
-          {
-            status: 401,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders
-            }
-          }
-        )
-      }
-
-      const apiKeyResult = await validateApiKey(apiKey, env)
-
-      if (!apiKeyResult.valid) {
-        return new Response(
-          JSON.stringify(
-            jsonRPCError(null, -32000, apiKeyResult.message || 'Invalid API key')
-          ),
-          {
-            status: 401,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders
-            }
-          }
-        )
-      }
-
-      // Parse JSON-RPC message
-      let message: {
-        jsonrpc: string
-        id?: string | number | null
-        method: string
-        params?: unknown
-      }
-
-      try {
-        message = await request.json()
-      } catch {
-        return new Response(
-          JSON.stringify(jsonRPCError(null, -32700, 'Parse error')),
-          {
-            status: 400,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders
-            }
-          }
-        )
-      }
-
-      // Validate JSON-RPC format
-      if (message.jsonrpc !== '2.0' || !message.method) {
-        return new Response(
-          JSON.stringify(jsonRPCError(null, -32600, 'Invalid Request')),
-          {
-            status: 400,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders
-            }
-          }
-        )
-      }
-
-      // Handle the message
-      const response = await handleMCPMessage(message, apiKeyResult, env)
-
-      // Return JSON response (not SSE - that's only for the GET /sse stream)
-      return new Response(JSON.stringify(response), {
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
-      })
-    }
-
     // 404 for unknown paths
     return new Response(
       JSON.stringify({
@@ -517,10 +677,11 @@ export default {
         endpoints: {
           '/': 'Health check',
           '/health': 'Health check',
-          '/mcp': 'MCP JSON-RPC endpoint (HTTP)',
-          '/sse': 'SSE transport for Claude Desktop (GET)',
-          '/messages': 'SSE transport messages endpoint (POST)'
-        }
+          '/mcp': 'MCP endpoint (Streamable HTTP + JSON-RPC)',
+          '/sse': 'Legacy SSE transport (GET)',
+          '/messages': 'Legacy SSE messages endpoint (POST)'
+        },
+        transports: ['streamable-http', 'sse', 'http']
       }),
       {
         status: 404,
