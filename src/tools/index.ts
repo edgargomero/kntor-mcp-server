@@ -35,10 +35,18 @@ import {
   type ManageExpedienteServicesInput
 } from './manage-expediente-services'
 
+import {
+  identifyCustomerTool,
+  executeIdentifyCustomer,
+  IdentifyCustomerInputSchema,
+  type IdentifyCustomerInput
+} from './identify-customer'
+
 /**
  * All available tools
  */
 export const tools = [
+  identifyCustomerTool,  // First - use this to check before creating
   createCustomerTool,
   searchCustomersTool,
   createExpedienteTool,
@@ -58,6 +66,10 @@ type ToolExecutor = (
  * Map of tool names to their executors
  */
 const toolExecutors: Record<string, ToolExecutor> = {
+  identify_customer: async (input, context, env) => {
+    const parsed = IdentifyCustomerInputSchema.parse(input)
+    return executeIdentifyCustomer(parsed, context, env)
+  },
   create_customer: async (input, context, env) => {
     const parsed = CreateCustomerInputSchema.parse(input)
     return executeCreateCustomer(parsed, context, env)
@@ -114,6 +126,7 @@ export async function executeTool(
 
 // Re-export types
 export type {
+  IdentifyCustomerInput,
   CreateCustomerInput,
   SearchCustomersInput,
   CreateExpedienteInput,
