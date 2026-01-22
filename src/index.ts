@@ -68,6 +68,94 @@ function jsonRPCError(
 }
 
 /**
+ * MCP Error Codes
+ */
+const MCP_ERRORS = {
+  // Authentication errors (-32000 to -32099)
+  API_KEY_MISSING: {
+    code: -32001,
+    message: 'API key required',
+    hint: 'Provide your API key in the x-api-key header or as Bearer token in Authorization header'
+  },
+  API_KEY_INVALID_FORMAT: {
+    code: -32002,
+    message: 'Invalid API key format',
+    hint: 'API key must start with "kntor_" prefix. Example: kntor_abc123...'
+  },
+  API_KEY_INVALID: {
+    code: -32003,
+    message: 'Invalid or expired API key',
+    hint: 'Check that your API key is correct and has not been revoked'
+  },
+  API_KEY_INACTIVE: {
+    code: -32004,
+    message: 'API key is inactive',
+    hint: 'Contact your administrator to reactivate this API key'
+  },
+  API_KEY_EXPIRED: {
+    code: -32005,
+    message: 'API key has expired',
+    hint: 'Request a new API key from your administrator'
+  },
+  RATE_LIMIT_EXCEEDED: {
+    code: -32006,
+    message: 'Rate limit exceeded',
+    hint: 'You have exceeded your monthly API call limit. Upgrade your plan or wait until next month'
+  },
+  // Server errors
+  SERVER_CONFIG_ERROR: {
+    code: -32010,
+    message: 'Server configuration error',
+    hint: 'The server is misconfigured. Please contact support'
+  }
+}
+
+/**
+ * Create authentication error response with detailed information
+ */
+function createAuthErrorResponse(
+  errorType: keyof typeof MCP_ERRORS,
+  additionalData?: Record<string, unknown>
+): { response: JSONRPCResponse; status: number } {
+  const error = MCP_ERRORS[errorType]
+  return {
+    response: jsonRPCError(null, error.code, error.message, {
+      hint: error.hint,
+      error_type: errorType.toLowerCase(),
+      documentation: 'https://github.com/edgargomero/kntor-mcp-server#authentication',
+      ...additionalData
+    }),
+    status: errorType === 'SERVER_CONFIG_ERROR' ? 500 : 401
+  }
+}
+
+/**
+ * Map API key validation result to appropriate error
+ */
+function getAuthError(apiKeyResult: ApiKeyValidationResult): keyof typeof MCP_ERRORS {
+  if (!apiKeyResult.error) return 'API_KEY_INVALID'
+
+  switch (apiKeyResult.error) {
+    case 'invalid_format':
+      return 'API_KEY_INVALID_FORMAT'
+    case 'not_found':
+    case 'validation_error':
+      return 'API_KEY_INVALID'
+    case 'inactive':
+      return 'API_KEY_INACTIVE'
+    case 'expired':
+      return 'API_KEY_EXPIRED'
+    case 'rate_limit':
+      return 'RATE_LIMIT_EXCEEDED'
+    case 'config_error':
+    case 'internal_error':
+      return 'SERVER_CONFIG_ERROR'
+    default:
+      return 'API_KEY_INVALID'
+  }
+}
+
+/**
  * Handle MCP protocol messages
  */
 async function handleMCPMessage(
@@ -288,37 +376,25 @@ export default {
           const apiKey = extractApiKey(request)
 
           if (!apiKey) {
-            return new Response(
-              JSON.stringify(
-                jsonRPCError(null, -32000, 'API key required', {
-                  hint: 'Provide API key in x-api-key header or as Bearer token'
-                })
-              ),
-              {
-                status: 401,
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...corsHeaders
-                }
-              }
-            )
+            const { response, status } = createAuthErrorResponse('API_KEY_MISSING')
+            return new Response(JSON.stringify(response), {
+              status,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders }
+            })
           }
 
           const apiKeyResult = await validateApiKey(apiKey, env)
 
           if (!apiKeyResult.valid) {
-            return new Response(
-              JSON.stringify(
-                jsonRPCError(null, -32000, apiKeyResult.message || 'Invalid API key')
-              ),
-              {
-                status: 401,
-                headers: {
-                  'Content-Type': 'application/json',
-                  ...corsHeaders
-                }
-              }
-            )
+            const errorType = getAuthError(apiKeyResult)
+            const { response, status } = createAuthErrorResponse(errorType, {
+              provided_key_prefix: apiKey.substring(0, 12) + '...',
+              server_message: apiKeyResult.message
+            })
+            return new Response(JSON.stringify(response), {
+              status,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders }
+            })
           }
 
           // Generate session ID for Streamable HTTP
@@ -402,39 +478,25 @@ export default {
       const apiKey = extractApiKey(request)
 
       if (!apiKey) {
-        return new Response(
-          JSON.stringify(
-            jsonRPCError(null, -32000, 'API key required', {
-              hint: 'Provide API key in x-api-key header or as Bearer token'
-            })
-          ),
-          {
-            status: 401,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders
-            }
-          }
-        )
+        const { response, status } = createAuthErrorResponse('API_KEY_MISSING')
+        return new Response(JSON.stringify(response), {
+          status,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        })
       }
 
       const apiKeyResult = await validateApiKey(apiKey, env)
 
       if (!apiKeyResult.valid) {
-        return new Response(
-          JSON.stringify(
-            jsonRPCError(null, -32000, apiKeyResult.message || 'Invalid API key', {
-              error: apiKeyResult.error
-            })
-          ),
-          {
-            status: 401,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders
-            }
-          }
-        )
+        const errorType = getAuthError(apiKeyResult)
+        const { response, status } = createAuthErrorResponse(errorType, {
+          provided_key_prefix: apiKey.substring(0, 12) + '...',
+          server_message: apiKeyResult.message
+        })
+        return new Response(JSON.stringify(response), {
+          status,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        })
       }
 
       // Parse JSON-RPC message(s) - can be single or batch
@@ -530,39 +592,25 @@ export default {
       const apiKey = extractApiKey(request)
 
       if (!apiKey) {
-        return new Response(
-          JSON.stringify(
-            jsonRPCError(null, -32000, 'API key required', {
-              hint: 'Provide API key in x-api-key header or as Bearer token'
-            })
-          ),
-          {
-            status: 401,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders
-            }
-          }
-        )
+        const { response, status } = createAuthErrorResponse('API_KEY_MISSING')
+        return new Response(JSON.stringify(response), {
+          status,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        })
       }
 
       const apiKeyResult = await validateApiKey(apiKey, env)
 
       if (!apiKeyResult.valid) {
-        return new Response(
-          JSON.stringify(
-            jsonRPCError(null, -32000, apiKeyResult.message || 'Invalid API key', {
-              error: apiKeyResult.error
-            })
-          ),
-          {
-            status: 401,
-            headers: {
-              'Content-Type': 'application/json',
-              ...corsHeaders
-            }
-          }
-        )
+        const errorType = getAuthError(apiKeyResult)
+        const { response, status } = createAuthErrorResponse(errorType, {
+          provided_key_prefix: apiKey.substring(0, 12) + '...',
+          server_message: apiKeyResult.message
+        })
+        return new Response(JSON.stringify(response), {
+          status,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        })
       }
 
       // Parse JSON-RPC message
