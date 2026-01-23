@@ -1,20 +1,28 @@
-# CLAUDE.md - Kntor MCP Server
+# CLAUDE.md
 
-**#memorize** MCP Server para Kntor.io ERP. Permite a agentes IA (Claude Desktop, n8n, WhatsApp bots) interactuar con el sistema CRM/ERP.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
----
+## Overview
 
-## Stack Tecnologico
+MCP Server for Kntor.io ERP. Enables AI agents (Claude Desktop, n8n, WhatsApp bots) to interact with the CRM/ERP system via Model Context Protocol.
 
-- **Runtime**: Cloudflare Workers (Edge Computing)
-- **Transport**: HTTP + JSON-RPC 2.0 (MCP Protocol)
-- **Database**: Supabase PostgreSQL (via REST API)
-- **NPM Package**: `kntor-mcp` (stdio proxy para Claude Desktop)
-- **Domain**: https://mcp.kntor.io
+- **Runtime**: Cloudflare Workers
+- **Transport**: HTTP + JSON-RPC 2.0, Streamable HTTP (MCP 2025), Legacy SSE
+- **Database**: Supabase PostgreSQL via REST API
+- **NPM Package**: `kntor-mcp` (stdio proxy for Claude Desktop)
+- **Production**: https://mcp.kntor.io
 
----
+## Commands
 
-## Arquitectura
+```bash
+pnpm install          # Install dependencies
+pnpm run dev          # Local development (port 8787)
+pnpm run deploy       # Deploy to Cloudflare Workers
+pnpm run typecheck    # TypeScript type checking
+wrangler tail         # View production logs
+```
+
+## Architecture
 
 ```
 ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐
@@ -44,276 +52,37 @@
                     └────────────────────┘
 ```
 
----
+**Key files:**
+- `src/index.ts` - Worker entry point, HTTP routing, MCP protocol handler
+- `src/tools/index.ts` - Tool registry and executor
+- `src/auth/api-key.ts` - API key validation via Supabase RPC
+- `bin/kntor-mcp.mjs` - Stdio proxy for Claude Desktop (published to npm)
 
-## Tools Disponibles
-
-### 1. search_customers
-Buscar clientes en el sistema.
-
-```json
-{
-  "query": "Juan",           // Opcional: texto de busqueda
-  "customer_type": "individual", // Opcional: individual | company
-  "status": "active",        // Opcional: active | inactive | lead | prospect
-  "limit": 20                // Opcional: max resultados (1-50)
-}
-```
-
-### 2. create_customer
-Crear un nuevo cliente.
-
-**Para individuos** (REQUERIDO: first_name, last_name):
-```json
-{
-  "customer_type": "individual",
-  "first_name": "Juan",
-  "last_name": "Perez",
-  "email": "juan@example.com",
-  "phone": "+56912345678",
-  "rut": "12.345.678-9"
-}
-```
-
-**Para empresas** (REQUERIDO: company_name):
-```json
-{
-  "customer_type": "company",
-  "company_name": "Mi Empresa SpA",
-  "email": "contacto@empresa.cl",
-  "phone": "+56212345678",
-  "tax_id": "76.123.456-7"
-}
-```
-
-### 3. create_expediente
-Crear un expediente (caso/proyecto) para un cliente.
-
-```json
-{
-  "expediente_nombre": "Proyecto Marketing 2026",  // REQUERIDO
-  "expediente_tipo": "proyecto",                   // REQUERIDO
-  "start_date": "2026-01-18",                      // REQUERIDO (YYYY-MM-DD)
-  "customer_id": "uuid-del-cliente",               // Opcional
-  "end_date": "2026-03-31",                        // Opcional
-  "description": "Descripcion del proyecto",      // Opcional
-  "notes": "Notas internas"                        // Opcional
-}
-```
-
-### 4. manage_expediente_services
-Gestionar servicios dentro de un expediente.
-
-**Acciones disponibles:**
-- `list_types` - Listar tipos de servicio disponibles
-- `list` - Listar servicios de un expediente
-- `add` - Agregar servicio
-- `update` - Actualizar servicio
-- `remove` - Eliminar servicio
-
-```json
-// Listar tipos de servicio (llamar primero)
-{ "action": "list_types" }
-
-// Agregar servicio
-{
-  "action": "add",
-  "expediente_id": "uuid-del-expediente",
-  "service_name": "Hotel 3 noches",
-  "unit_price": 50000,
-  "quantity": 3
-}
-```
-
----
-
-## Autenticacion
-
-### Flujo de API Key
-
-1. **API Key** (header `x-api-key: kntor_xxx`) identifica el brand
-2. **RPC `validate_mcp_api_key`** valida y retorna `brand_id`
-3. **Todas las operaciones** filtran por `brand_id` automaticamente
+## Authentication Flow
 
 ```
-API Key → validate_mcp_api_key() → brand_id → MCPContext → Data Isolation
+API Key (x-api-key header) → validate_mcp_api_key RPC → brand_id → MCPContext → Data Isolation
 ```
 
-### Brand Isolation
+All operations filter by `brand_id` from the validated API key. Never query without brand isolation.
 
-Cada API key esta asociada a un brand. Los datos NUNCA se mezclan entre brands:
+## Available Tools
 
-```typescript
-// Todas las queries incluyen brand_id
-const customerData = {
-  ...input,
-  brand_id: context.brandId,  // Del API key
-  created_by: context.userId
-}
-```
-
----
-
-## Comandos de Desarrollo
-
-```bash
-# Instalar dependencias
-pnpm install
-
-# Desarrollo local
-pnpm run dev
-
-# Deploy a produccion
-pnpm run deploy
-# o simplemente push a main (auto-deploy via Git)
-git push origin main
-
-# Ver logs
-wrangler tail
-```
-
----
-
-## Estructura del Proyecto
-
-```
-kntor-mcp-server/
-├── bin/
-│   └── kntor-mcp.mjs      # Stdio proxy para Claude Desktop (npm)
-├── src/
-│   ├── index.ts           # Entry point (Cloudflare Worker)
-│   ├── server.ts          # MCP server config + tool registry
-│   ├── types.ts           # TypeScript types
-│   ├── auth/
-│   │   └── api-key.ts     # Validacion API key
-│   ├── tools/
-│   │   ├── search-customers.ts
-│   │   ├── create-customer.ts
-│   │   ├── create-expediente.ts
-│   │   └── manage-expediente-services.ts
-│   └── utils/
-│       ├── supabase.ts    # Client factory
-│       └── metering.ts    # Usage logging
-├── wrangler.toml          # Cloudflare config
-└── package.json
-```
-
----
-
-## Uso con Claude Desktop
-
-### Configuracion (claude_desktop_config.json)
-
-```json
-{
-  "mcpServers": {
-    "kntor-erp": {
-      "command": "npx",
-      "args": ["-y", "kntor-mcp"],
-      "env": {
-        "KNTOR_API_KEY": "kntor_tu_api_key_aqui"
-      }
-    }
-  }
-}
-```
-
-### Test Rapido
-
-```bash
-# Verificar que el package funciona
-KNTOR_API_KEY=kntor_xxx npx -y kntor-mcp
-
-# Deberia mostrar mensaje de conexion o error de API key
-```
-
----
-
-## Variables de Entorno
-
-### Worker (wrangler.toml secrets)
-
-```bash
-# Configurar secrets
-wrangler secret put SUPABASE_URL
-wrangler secret put SUPABASE_ANON_KEY
-wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-```
-
-### Desarrollo Local (.dev.vars)
-
-```
-SUPABASE_URL=https://xxx.supabase.co
-SUPABASE_ANON_KEY=eyJ...
-SUPABASE_SERVICE_ROLE_KEY=eyJ...
-```
-
----
-
-## Tablas de Base de Datos
-
-### mcp_api_keys
-```sql
-CREATE TABLE mcp_api_keys (
-  id UUID PRIMARY KEY,
-  brand_id UUID REFERENCES brands(id),
-  key_hash TEXT NOT NULL,        -- SHA256 del API key
-  key_prefix TEXT NOT NULL,      -- kntor_xxxxxxxx
-  name TEXT NOT NULL,            -- "WhatsApp Bot", "n8n"
-  tier TEXT DEFAULT 'free',      -- free|starter|pro|enterprise
-  monthly_limit INTEGER DEFAULT 100,
-  is_active BOOLEAN DEFAULT true,
-  last_used_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ,
-  expires_at TIMESTAMPTZ
-);
-```
-
-### mcp_usage
-```sql
-CREATE TABLE mcp_usage (
-  id UUID PRIMARY KEY,
-  api_key_id UUID REFERENCES mcp_api_keys(id),
-  brand_id UUID REFERENCES brands(id),
-  tool_name TEXT NOT NULL,
-  user_id UUID,
-  success BOOLEAN,
-  duration_ms INTEGER,
-  created_at TIMESTAMPTZ
-);
-```
-
----
-
-## Endpoints
-
-- **Health**: `GET https://mcp.kntor.io/health`
-- **MCP**: `POST https://mcp.kntor.io/mcp` (JSON-RPC 2.0)
-
-### Ejemplo Request
-
-```bash
-curl -X POST https://mcp.kntor.io/mcp \
-  -H "x-api-key: kntor_xxx" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "tools/list",
-    "id": 1
-  }'
-```
-
----
+1. **identify_customer** - Check if customer exists by phone/email/RUT (use BEFORE create_customer)
+2. **create_customer** - Create individual or company customer
+3. **search_customers** - Search customers with filters
+4. **create_expediente** - Create case/project for a customer
+5. **manage_expediente_services** - CRUD operations on expediente services
 
 ## Gotchas
 
-### 1. Supabase REST API (NO SDK chainable)
+### Supabase REST API (no SDK chaining)
 
 ```typescript
-// ❌ NO FUNCIONA (createServiceClient no soporta chains)
+// ❌ NO FUNCIONA
 const { data } = await supabase.from('table').insert(data).select().single()
 
-// ✅ CORRECTO (REST API directo)
+// ✅ CORRECTO - Use REST API directly
 const response = await fetch(`${env.SUPABASE_URL}/rest/v1/table`, {
   method: 'POST',
   headers: {
@@ -325,41 +94,63 @@ const response = await fetch(`${env.SUPABASE_URL}/rest/v1/table`, {
 })
 ```
 
-### 2. Tool Descriptions para AI
+### Tool Descriptions for AI
 
-Las descripciones deben ser explicitas sobre campos requeridos:
+Make required/optional fields explicit in descriptions:
 ```typescript
 description: `REQUIRED FIELDS:
-- field1: descripcion
-- field2: descripcion
+- field1: description
 
 OPTIONAL FIELDS:
-- field3: descripcion`
+- field2: description`
 ```
 
-### 3. Brand Isolation
+### Brand Isolation
 
-SIEMPRE incluir `brand_id` del context en queries:
+ALWAYS include `brand_id` in queries:
 ```typescript
-.eq('brand_id', context.brandId)
+url += `&brand_id=eq.${context.brandId}`
 ```
 
----
+## Transport Support
 
-## NPM Package
+The server supports multiple MCP transports:
+- **Streamable HTTP** (`/mcp` with `Accept: text/event-stream`) - MCP 2025 spec
+- **HTTP JSON-RPC** (`POST /mcp`) - Standard request/response
+- **Legacy SSE** (`GET /sse` + `POST /messages`) - For older clients
 
-- **Nombre**: `kntor-mcp`
-- **Version**: 1.0.0
-- **Instalacion**: `npx -y kntor-mcp`
-- **Repositorio**: https://github.com/edgargomero/kntor-mcp-server
+## Environment Variables
 
-El package es un stdio proxy que traduce el protocolo stdio de Claude Desktop a HTTP contra mcp.kntor.io.
+**Worker secrets** (set via `wrangler secret put`):
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
----
+**Local development** (`.dev.vars`):
+```
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_ANON_KEY=eyJ...
+SUPABASE_SERVICE_ROLE_KEY=eyJ...
+```
 
-## Links
+## Adding a New Tool
 
-- **Produccion**: https://mcp.kntor.io
-- **NPM**: https://www.npmjs.com/package/kntor-mcp
-- **GitHub**: https://github.com/edgargomero/kntor-mcp-server
-- **Kntor.io App**: https://kntor.io
+1. Create `src/tools/my-tool.ts` with:
+   - Zod input schema
+   - Tool definition (name, description, inputSchema)
+   - Execute function returning `ToolResult`
+2. Register in `src/tools/index.ts`:
+   - Import the tool
+   - Add to `tools` array
+   - Add executor to `toolExecutors` map
+3. Deploy: `pnpm run deploy`
+
+## Error Codes
+
+API key errors use codes -32001 to -32006:
+- `-32001`: API key missing
+- `-32002`: Invalid format (must start with `kntor_`)
+- `-32003`: Invalid/not found
+- `-32004`: Inactive
+- `-32005`: Expired
+- `-32006`: Rate limit exceeded
