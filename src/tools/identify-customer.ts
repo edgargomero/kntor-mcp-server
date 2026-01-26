@@ -25,7 +25,7 @@ export type IdentifyCustomerInput = z.infer<typeof IdentifyCustomerInputSchema>
  */
 export const identifyCustomerTool = {
   name: 'identify_customer',
-  description: `Identify an existing customer by phone, email, or RUT.
+  description: `Identify an existing customer by phone, email, or RUT. Returns full context including funnel stage and open expedientes.
 
 IMPORTANT: Use this tool BEFORE creating a new customer to prevent duplicates.
 
@@ -41,20 +41,26 @@ PARAMETERS (at least one required):
 
 RETURNS:
 - found: true/false - whether a customer was found
-- customer: Customer data if found (id, name, email, phone, etc.)
+- customer: Customer data if found (id, name, email, phone, status, etc.)
+- funnel: Current sales funnel stage (stage_name, stage_type, days_in_stage, deal_value)
+- expedientes: List of open/active expedientes for this customer
 - message: Human-readable result message
+
+FUNNEL STAGES indicate where the customer is in the sales process:
+- Lead → Contactado → Calificado → Propuesta → Negociación → Ganado/Perdido
+- stage_type: "normal" (in progress), "won" (converted), "lost" (not converted)
+
+Use this context to personalize your conversation:
+- New lead: Focus on understanding their needs
+- In proposal stage: They're evaluating, answer questions about services
+- Won customer: They're a client, focus on service delivery
+- Has open expedientes: Reference their existing cases
 
 WORKFLOW EXAMPLE:
 1. Customer writes via WhatsApp from +56912345678
 2. Call identify_customer with phone="+56912345678"
-3. If found=true → use the existing customer_id
-4. If found=false → safe to create new customer with create_customer
-
-TIP: For phone numbers, the search is flexible - it will match:
-- "+56912345678"
-- "56912345678"
-- "912345678"
-- "9 1234 5678"`,
+3. If found=true → greet by name, check funnel stage and expedientes
+4. If found=false → safe to create new customer with create_customer`,
   inputSchema: {
     type: 'object',
     properties: {
@@ -200,6 +206,91 @@ export async function executeIdentifyCustomer(
         ? customer.company_name
         : `${customer.first_name || ''} ${customer.last_name || ''}`.trim()
 
+      // Fetch funnel position and expedientes in parallel
+      const [funnelResponse, expedientesResponse] = await Promise.all([
+        // Get funnel position
+        fetch(`${env.SUPABASE_URL}/rest/v1/customer_funnel_positions?select=id,deal_value,entered_stage_at,expected_close_date,notes,funnel_id,stage_id,funnel_stages(id,name,stage_type,color,position),sales_funnels(id,name)&customer_id=eq.${customer.id}&limit=1`, {
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+          }
+        }),
+        // Get open expedientes
+        fetch(`${env.SUPABASE_URL}/rest/v1/expedientes?select=id,expediente_codigo,expediente_nombre,expediente_tipo,expediente_estado,departure_date,description,notes&customer_id=eq.${customer.id}&expediente_estado=in.(activo,pendiente,en_progreso)&order=created_at.desc&limit=5`, {
+          headers: {
+            'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
+            'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
+          }
+        })
+      ])
+
+      // Parse funnel data
+      let funnelContext = null
+      if (funnelResponse.ok) {
+        const funnelData = await funnelResponse.json()
+        if (Array.isArray(funnelData) && funnelData.length > 0) {
+          const position = funnelData[0]
+          const stage = position.funnel_stages
+          const funnel = position.sales_funnels
+          const daysInStage = position.entered_stage_at
+            ? Math.floor((Date.now() - new Date(position.entered_stage_at).getTime()) / (1000 * 60 * 60 * 24))
+            : 0
+
+          funnelContext = {
+            funnel_name: funnel?.name || null,
+            stage_name: stage?.name || null,
+            stage_type: stage?.stage_type || 'normal',
+            stage_color: stage?.color || null,
+            stage_position: stage?.position || null,
+            deal_value: position.deal_value,
+            days_in_stage: daysInStage,
+            entered_stage_at: position.entered_stage_at,
+            expected_close_date: position.expected_close_date,
+            notes: position.notes
+          }
+        }
+      }
+
+      // Parse expedientes data
+      let openExpedientes: Array<{
+        id: string
+        codigo: string
+        nombre: string
+        tipo: string
+        estado: string
+        fecha_inicio: string
+        descripcion: string | null
+      }> = []
+      if (expedientesResponse.ok) {
+        const expedientesData = await expedientesResponse.json()
+        if (Array.isArray(expedientesData)) {
+          openExpedientes = expedientesData.map(exp => ({
+            id: exp.id,
+            codigo: exp.expediente_codigo,
+            nombre: exp.expediente_nombre,
+            tipo: exp.expediente_tipo,
+            estado: exp.expediente_estado,
+            fecha_inicio: exp.departure_date,
+            descripcion: exp.description
+          }))
+        }
+      }
+
+      // Build action hint based on context
+      let actionHint = 'Use the customer.id for creating expedientes or other operations'
+      if (funnelContext) {
+        if (funnelContext.stage_type === 'won') {
+          actionHint = 'This is an active customer (won). Focus on service delivery and satisfaction.'
+        } else if (funnelContext.stage_type === 'lost') {
+          actionHint = 'This customer was lost previously. Be welcoming if they return.'
+        } else if (funnelContext.stage_name) {
+          actionHint = `Customer is in "${funnelContext.stage_name}" stage (${funnelContext.days_in_stage} days). Continue the sales process.`
+        }
+      }
+      if (openExpedientes.length > 0) {
+        actionHint += ` Has ${openExpedientes.length} open expediente(s) - check if inquiry relates to existing case.`
+      }
+
       return {
         success: true,
         data: {
@@ -225,7 +316,9 @@ export async function executeIdentifyCustomer(
             },
             created_at: customer.created_at
           },
-          action_hint: 'Use the customer.id for creating expedientes or other operations'
+          funnel: funnelContext,
+          expedientes: openExpedientes,
+          action_hint: actionHint
         }
       }
     } else {

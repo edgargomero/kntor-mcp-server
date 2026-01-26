@@ -17,8 +17,8 @@ export const CreateExpedienteInputSchema = z.object({
   customer_id: z.string().uuid().optional().describe('UUID of the associated customer'),
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('Start date (YYYY-MM-DD)'),
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('End date (YYYY-MM-DD)'),
-  description: z.string().max(2000).optional().describe('Detailed description of the expediente'),
-  notes: z.string().max(1000).optional().describe('Internal notes')
+  description: z.string().max(2000).optional().describe('MANDATORY for AI agents. You MUST include the complete customer need description here. This is the primary record - never leave empty.'),
+  notes: z.string().max(1000).optional().describe('Internal notes for follow-up')
 })
 
 export type CreateExpedienteInput = z.infer<typeof CreateExpedienteInputSchema>
@@ -32,16 +32,19 @@ export const createExpedienteTool = {
 
 An expediente tracks business activities and services for a customer (projects, contracts, service agreements, etc.).
 
+WORKFLOW: After creating a customer with create_customer, use the returned customer ID to create an expediente that describes their specific need or request.
+
 REQUIRED FIELDS:
-- expediente_nombre: Name/title (e.g., "Proyecto Marketing 2026")
-- expediente_tipo: Type (proyecto, servicio, contrato, consulta, viaje, etc.)
-- start_date: Start date in YYYY-MM-DD format
+- expediente_nombre: Name/title describing the need (e.g., "Consulta Tributaria", "Proyecto Marketing 2026")
+- expediente_tipo: Type (proyecto, servicio, contrato, consulta, viaje, tramite, etc.)
+- start_date: Start date in YYYY-MM-DD format (use today's date if not specified)
+
+MANDATORY FOR AI AGENTS:
+- customer_id: UUID of associated customer (returned by create_customer or search_customers)
+- description: You MUST fill this with the complete customer need description. Include the full context, requirements, urgency, and all details gathered. NEVER leave empty.
 
 OPTIONAL FIELDS:
-- customer_id: UUID of associated customer (use search_customers first to get ID)
-- end_date: End date in YYYY-MM-DD format
-- description: Detailed description
-- notes: Internal notes
+- notes: Internal notes for follow-up
 
 Returns the created expediente with its unique code (e.g., "PRO-2601-ABC123").`,
   inputSchema: {
@@ -60,7 +63,7 @@ Returns the created expediente with its unique code (e.g., "PRO-2601-ABC123").`,
       customer_id: {
         type: 'string',
         format: 'uuid',
-        description: 'Optional. UUID of the associated customer (use search_customers to find)'
+        description: 'RECOMMENDED. UUID of the associated customer (returned by create_customer or search_customers). Always link expedientes to customers.'
       },
       start_date: {
         type: 'string',
@@ -74,12 +77,12 @@ Returns the created expediente with its unique code (e.g., "PRO-2601-ABC123").`,
       },
       description: {
         type: 'string',
-        description: 'Optional. Detailed description of the expediente',
+        description: 'MANDATORY for AI agents. You MUST include the complete customer need description here. Include their specific request, requirements, context, urgency, and all details gathered. This is the primary record - NEVER leave empty.',
         maxLength: 2000
       },
       notes: {
         type: 'string',
-        description: 'Optional. Internal notes',
+        description: 'Internal notes for follow-up actions or observations',
         maxLength: 1000
       }
     },
