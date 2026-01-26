@@ -247,12 +247,15 @@ async function handleMCPMessage(
       const duration = Date.now() - startTime
 
       // Log to Analytics Engine (if configured)
+      console.log('[Analytics] MCP_ANALYTICS defined:', !!env.MCP_ANALYTICS)
       if (env.MCP_ANALYTICS) {
+        console.log('[Analytics] Writing datapoint for tool:', params.name)
         env.MCP_ANALYTICS.writeDataPoint({
           blobs: [context.brandId, params.name, result.success ? 'success' : 'error'],
           doubles: [duration, result.success ? 1 : 0],
           indexes: [context.apiKeyId]
         })
+        console.log('[Analytics] Datapoint written successfully')
       }
 
       if (result.success) {
