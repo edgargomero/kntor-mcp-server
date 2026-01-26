@@ -236,13 +236,24 @@ async function handleMCPMessage(
         userRole: apiKeyResult.user_role || 'authenticated'
       }
 
-      // Execute tool
+      // Execute tool with timing
+      const startTime = Date.now()
       const result = await executeTool(
         params.name,
         params.arguments || {},
         context,
         env
       )
+      const duration = Date.now() - startTime
+
+      // Log to Analytics Engine (if configured)
+      if (env.MCP_ANALYTICS) {
+        env.MCP_ANALYTICS.writeDataPoint({
+          blobs: [context.brandId, params.name, result.success ? 'success' : 'error'],
+          doubles: [duration, result.success ? 1 : 0],
+          indexes: [context.apiKeyId]
+        })
+      }
 
       if (result.success) {
         return jsonRPCSuccess(id, {
