@@ -23,3 +23,7 @@ ENVIRONMENT = "production"
 [dev]
 port = 8787
 local_protocol = "http"
+
+# Analytics Engine for usage metrics
+[[analytics_engine_datasets]]
+binding = "MCP_ANALYTICS"

@@ -214,6 +214,17 @@ async function handleMCPMessage(
         return jsonRPCError(id, -32602, 'Invalid params: tool name required')
       }
 
+      // Check rate limit before executing tool
+      if (apiKeyResult.remaining_calls !== undefined && apiKeyResult.remaining_calls <= 0) {
+        return jsonRPCError(id, MCP_ERRORS.RATE_LIMIT_EXCEEDED.code, MCP_ERRORS.RATE_LIMIT_EXCEEDED.message, {
+          hint: MCP_ERRORS.RATE_LIMIT_EXCEEDED.hint,
+          monthly_limit: apiKeyResult.monthly_limit,
+          current_usage: apiKeyResult.current_usage,
+          reset_date: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString(),
+          upgrade_url: 'https://kntor.io/pricing'
+        })
+      }
+
       // Build context from API key validation (includes user info from API key creator)
       const context: MCPContext = {
         apiKeyId: apiKeyResult.api_key_id!,
@@ -312,6 +323,42 @@ export default {
             ...corsHeaders
           }
         }
+      )
+    }
+
+    // GET /usage - Query API key usage statistics
+    if (url.pathname === '/usage' && request.method === 'GET') {
+      const apiKey = extractApiKey(request)
+
+      if (!apiKey) {
+        return new Response(
+          JSON.stringify({ error: 'API key required', hint: 'Provide your API key in the x-api-key header' }),
+          { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        )
+      }
+
+      const apiKeyResult = await validateApiKey(apiKey, env)
+
+      if (!apiKeyResult.valid) {
+        return new Response(
+          JSON.stringify({ error: apiKeyResult.message || 'Invalid API key' }),
+          { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        )
+      }
+
+      // Calculate next cycle reset date (first day of next month)
+      const now = new Date()
+      const cycleReset = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString()
+
+      return new Response(
+        JSON.stringify({
+          tier: apiKeyResult.tier,
+          monthly_limit: apiKeyResult.monthly_limit,
+          current_usage: apiKeyResult.current_usage,
+          remaining_calls: apiKeyResult.remaining_calls,
+          cycle_reset: cycleReset
+        }),
+        { headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       )
     }
 
@@ -725,6 +772,7 @@ export default {
         endpoints: {
           '/': 'Health check',
           '/health': 'Health check',
+          '/usage': 'API key usage statistics (GET)',
           '/mcp': 'MCP endpoint (Streamable HTTP + JSON-RPC)',
           '/sse': 'Legacy SSE transport (GET)',
           '/messages': 'Legacy SSE messages endpoint (POST)'

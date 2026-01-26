@@ -1,4 +1,15 @@
 /**
+ * Cloudflare Analytics Engine Dataset binding
+ */
+export interface AnalyticsEngineDataset {
+  writeDataPoint(data: {
+    blobs?: string[]
+    doubles?: number[]
+    indexes?: string[]
+  }): void
+}
+
+/**
  * Cloudflare Worker environment bindings
  */
 export interface Env {
@@ -6,6 +17,7 @@ export interface Env {
   SUPABASE_ANON_KEY: string
   SUPABASE_SERVICE_ROLE_KEY: string
   ENVIRONMENT: string
+  MCP_ANALYTICS?: AnalyticsEngineDataset
 }
 
 /**
