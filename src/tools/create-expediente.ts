@@ -165,7 +165,7 @@ export async function executeCreateExpediente(
       expediente_codigo: expedienteCodigo,
       expediente_nombre: input.expediente_nombre,
       expediente_tipo: input.expediente_tipo,
-      expediente_estado: 'activo',
+      expediente_estado: 'pending',
       customer_id: input.customer_id || null,
       departure_date: input.start_date,
       return_date: input.end_date || null,
