@@ -121,17 +121,6 @@ function generateExpedienteCode(tipo: string): string {
 }
 
 /**
- * Calculate duration in days
- */
-function calculateDuration(startDate: string, endDate?: string): number {
-  if (!endDate) return 0
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  const diffTime = Math.abs(end.getTime() - start.getTime())
-  return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1
-}
-
-/**
  * Execute the create_expediente tool
  */
 export async function executeCreateExpediente(
@@ -169,9 +158,9 @@ export async function executeCreateExpediente(
 
     // Generate unique expediente code
     const expedienteCodigo = generateExpedienteCode(input.expediente_tipo)
-    const durationDays = calculateDuration(input.start_date, input.end_date)
 
     // Prepare expediente data (using departure_date for DB compatibility)
+    // Note: duration_days is a generated column in DB, don't include it
     const expedienteData = {
       expediente_codigo: expedienteCodigo,
       expediente_nombre: input.expediente_nombre,
@@ -180,7 +169,6 @@ export async function executeCreateExpediente(
       customer_id: input.customer_id || null,
       departure_date: input.start_date,
       return_date: input.end_date || null,
-      duration_days: durationDays,
       departure_city: input.departure_city || '-',
       arrival_city: input.arrival_city || '-',
       total_seats: input.total_seats || 1,
