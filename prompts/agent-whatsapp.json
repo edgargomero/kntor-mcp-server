@@ -190,27 +190,5 @@
       "at_least_one_service_added",
       "manage_expediente_services_list_count_greater_than_zero"
     ]
-  },
-
-  "changelog": {
-    "1.5.0": [
-      "Nueva herramienta update_funnel_stage para mover clientes en el embudo",
-      "Campos estructurados en create_expediente: arrival_city, departure_city, total_seats",
-      "Flujo actualizado: Mover a Contactado después de crear/identificar cliente",
-      "Ejemplo completo actualizado con nuevos campos y herramienta"
-    ],
-    "1.4.0": [
-      "Añadido flujo completo: CLIENTE → EXPEDIENTE → SERVICIOS → VALIDACIÓN",
-      "Integrada herramienta manage_expediente_services",
-      "Paso de validación obligatorio con action=list",
-      "Detección automática de servicios típicos por tipo de expediente",
-      "Checklist de validación antes de confirmar al cliente",
-      "Ejemplo completo con todos los pasos"
-    ],
-    "1.3.0": [
-      "Sección PROHIBIDO prominente para Haiku",
-      "Regla de extracción automática de datos",
-      "Optimizado para claude-3-haiku"
-    ]
   }
 }
