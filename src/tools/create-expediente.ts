@@ -18,7 +18,10 @@ export const CreateExpedienteInputSchema = z.object({
   start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('Start date (YYYY-MM-DD)'),
   end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('End date (YYYY-MM-DD)'),
   description: z.string().max(2000).optional().describe('MANDATORY for AI agents. You MUST include the complete customer need description here. This is the primary record - never leave empty.'),
-  notes: z.string().max(1000).optional().describe('Internal notes for follow-up')
+  notes: z.string().max(1000).optional().describe('Internal notes for follow-up'),
+  arrival_city: z.string().max(100).optional().describe('Destination city (e.g., "Punta Cana", "Cancún")'),
+  departure_city: z.string().max(100).optional().describe('Origin city (e.g., "Santiago", "Lima")'),
+  total_seats: z.number().int().min(1).max(100).optional().describe('Number of passengers')
 })
 
 export type CreateExpedienteInput = z.infer<typeof CreateExpedienteInputSchema>
@@ -84,6 +87,22 @@ Returns the created expediente with its unique code (e.g., "PRO-2601-ABC123").`,
         type: 'string',
         description: 'Internal notes for follow-up actions or observations',
         maxLength: 1000
+      },
+      arrival_city: {
+        type: 'string',
+        description: 'IMPORTANT for travel. Destination city/location (e.g., "Punta Cana", "Cancún")',
+        maxLength: 100
+      },
+      departure_city: {
+        type: 'string',
+        description: 'Optional. Origin city/location (e.g., "Santiago", "Lima")',
+        maxLength: 100
+      },
+      total_seats: {
+        type: 'integer',
+        description: 'IMPORTANT for travel. Number of passengers (adults + children + infants)',
+        minimum: 1,
+        maximum: 100
       }
     },
     required: ['expediente_nombre', 'expediente_tipo', 'start_date']
@@ -162,10 +181,10 @@ export async function executeCreateExpediente(
       departure_date: input.start_date,
       return_date: input.end_date || null,
       duration_days: durationDays,
-      departure_city: '-',
-      arrival_city: '-',
-      total_seats: 1,
-      available_seats: 1,
+      departure_city: input.departure_city || '-',
+      arrival_city: input.arrival_city || '-',
+      total_seats: input.total_seats || 1,
+      available_seats: input.total_seats || 1,
       description: input.description || null,
       notes: input.notes || null,
       brand_id: context.brandId,
@@ -223,6 +242,9 @@ export async function executeCreateExpediente(
           start_date: data.departure_date,
           end_date: data.return_date,
           duration_days: data.duration_days,
+          arrival_city: data.arrival_city,
+          departure_city: data.departure_city,
+          total_seats: data.total_seats,
           description: data.description,
           created_at: data.created_at
         }

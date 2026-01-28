@@ -42,12 +42,20 @@ import {
   type IdentifyCustomerInput
 } from './identify-customer'
 
+import {
+  updateFunnelStageTool,
+  executeUpdateFunnelStage,
+  UpdateFunnelStageInputSchema,
+  type UpdateFunnelStageInput
+} from './update-funnel-stage'
+
 /**
  * All available tools
  */
 export const tools = [
   identifyCustomerTool,  // First - use this to check before creating
   createCustomerTool,
+  updateFunnelStageTool, // Move customer in sales funnel
   searchCustomersTool,
   createExpedienteTool,
   manageExpedienteServicesTool
@@ -73,6 +81,10 @@ const toolExecutors: Record<string, ToolExecutor> = {
   create_customer: async (input, context, env) => {
     const parsed = CreateCustomerInputSchema.parse(input)
     return executeCreateCustomer(parsed, context, env)
+  },
+  update_funnel_stage: async (input, context, env) => {
+    const parsed = UpdateFunnelStageInputSchema.parse(input)
+    return executeUpdateFunnelStage(parsed, context, env)
   },
   search_customers: async (input, context, env) => {
     const parsed = SearchCustomersInputSchema.parse(input)
@@ -128,6 +140,7 @@ export async function executeTool(
 export type {
   IdentifyCustomerInput,
   CreateCustomerInput,
+  UpdateFunnelStageInput,
   SearchCustomersInput,
   CreateExpedienteInput,
   ManageExpedienteServicesInput
