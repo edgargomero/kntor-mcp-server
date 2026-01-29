@@ -40,8 +40,14 @@ export async function executeGetBrandContext(
   context: MCPContext,
   _env: Env
 ): Promise<ToolResult> {
-  // Group service types by category for better readability
-  const servicesByCategory: Record<string, Array<{ code: string; name: string; subcategory?: string | null }>> = {}
+  // Group service types by category with full field info
+  const servicesByCategory: Record<string, Array<{
+    code: string
+    name: string
+    subcategory?: string | null
+    required_fields: string[]
+    optional_fields: string[]
+  }>> = {}
 
   for (const st of context.serviceTypes) {
     const category = st.category || 'other'
@@ -51,8 +57,25 @@ export async function executeGetBrandContext(
     servicesByCategory[category].push({
       code: st.code,
       name: st.name,
-      subcategory: st.subcategory
+      subcategory: st.subcategory,
+      required_fields: st.required_fields || [],
+      optional_fields: st.optional_fields || []
     })
+  }
+
+  // Create a quick reference for data collection per service
+  const dataCollectionGuide: Record<string, {
+    name: string
+    must_collect: string[]
+    nice_to_have: string[]
+  }> = {}
+
+  for (const st of context.serviceTypes) {
+    dataCollectionGuide[st.code] = {
+      name: st.name,
+      must_collect: st.required_fields || [],
+      nice_to_have: st.optional_fields || []
+    }
   }
 
   return {
@@ -66,14 +89,22 @@ export async function executeGetBrandContext(
       service_types: {
         total_count: context.serviceTypes.length,
         by_category: servicesByCategory,
-        // Also provide flat list for easy reference
+        // Flat list with all details
         all: context.serviceTypes.map(st => ({
           code: st.code,
           name: st.name,
-          category: st.category
+          category: st.category,
+          required_fields: st.required_fields || [],
+          optional_fields: st.optional_fields || []
         }))
       },
-      hint: `When creating expedientes for this brand, use expediente_tipo="${context.brandIndustryType}" and service_type_code from the available service types.`
+      // Guide for AI agent: what data to collect per service type
+      data_collection_guide: dataCollectionGuide,
+      hints: {
+        expediente_tipo: `Use "${context.brandIndustryType}" (auto-assigned from brand)`,
+        service_type_code: "MUST be one of the codes listed in service_types.all",
+        data_collection: "Check data_collection_guide[service_code] to know what fields to ask the customer"
+      }
     }
   }
 }

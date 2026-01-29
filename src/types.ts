@@ -29,6 +29,10 @@ export interface ServiceType {
   category: string
   subcategory?: string | null
   description?: string | null
+  /** Fields required to collect for this service type */
+  required_fields?: string[]
+  /** Optional fields that can be collected */
+  optional_fields?: string[]
 }
 
 /**
