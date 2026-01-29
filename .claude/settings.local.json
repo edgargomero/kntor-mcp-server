@@ -4,7 +4,8 @@
       "Bash(pnpm run typecheck:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(powershell -Command \"pnpm run typecheck 2>&1 | Select-String ''create-expediente''\")"
     ]
   }
 }
