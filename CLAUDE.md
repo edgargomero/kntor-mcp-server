@@ -68,12 +68,35 @@ All operations filter by `brand_id` from the validated API key. Never query with
 
 ## Available Tools
 
-1. **identify_customer** - Check if customer exists by phone/email/RUT (use BEFORE create_customer)
-2. **create_customer** - Create individual or company customer
-3. **search_customers** - Search customers with filters
-4. **create_expediente** - Create expediente with optional service and beneficiaries (enhanced)
-5. **manage_expediente_services** - CRUD operations on expediente services
-6. **update_funnel_stage** - Move customer through sales funnel stages
+1. **get_brand_context** - Get brand info including industry_type and available service_types (use FIRST)
+2. **identify_customer** - Check if customer exists by phone/email/RUT (use BEFORE create_customer)
+3. **create_customer** - Create individual or company customer
+4. **search_customers** - Search customers with filters
+5. **create_expediente** - Create expediente with optional service and beneficiaries (enhanced)
+6. **manage_expediente_services** - CRUD operations on expediente services
+7. **update_funnel_stage** - Move customer through sales funnel stages
+
+### get_brand_context Response
+
+```json
+{
+  "brand": {
+    "id": "uuid",
+    "name": "Brand Name",
+    "industry_type": "travel|legal|medical|education|other"
+  },
+  "service_types": {
+    "total_count": 10,
+    "by_category": {
+      "travel": [{"code": "flight", "name": "Vuelo"}, ...]
+    },
+    "all": [{"code": "flight", "name": "Vuelo", "category": "travel"}, ...]
+  },
+  "hint": "When creating expedientes, use expediente_tipo=travel and service_type_code from available services."
+}
+```
+
+Use `service_type_code` from the response when calling `create_expediente` or `manage_expediente_services`.
 
 ## Expedientes System (Multi-Industry)
 
