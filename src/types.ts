@@ -21,6 +21,20 @@ export interface Env {
 }
 
 /**
+ * Field schema definition with type and format
+ */
+export interface FieldSchema {
+  type: 'date' | 'datetime' | 'string' | 'integer' | 'email' | 'phone' | 'currency'
+  format?: string        // e.g., "YYYY-MM-DD", "IATA"
+  label: string          // Display name in Spanish
+  required: boolean
+  options?: string[]     // For select fields
+  min?: number           // For integers
+  max?: number
+  example?: string       // Example value
+}
+
+/**
  * Service type available for the brand
  */
 export interface ServiceType {
@@ -33,6 +47,8 @@ export interface ServiceType {
   required_fields?: string[]
   /** Optional fields that can be collected */
   optional_fields?: string[]
+  /** Full schema definitions with types and formats */
+  field_schemas?: Record<string, FieldSchema>
 }
 
 /**
