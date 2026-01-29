@@ -71,8 +71,75 @@ All operations filter by `brand_id` from the validated API key. Never query with
 1. **identify_customer** - Check if customer exists by phone/email/RUT (use BEFORE create_customer)
 2. **create_customer** - Create individual or company customer
 3. **search_customers** - Search customers with filters
-4. **create_expediente** - Create case/project for a customer
+4. **create_expediente** - Create expediente with optional service and beneficiaries (enhanced)
 5. **manage_expediente_services** - CRUD operations on expediente services
+6. **update_funnel_stage** - Move customer through sales funnel stages
+
+## Expedientes System (Multi-Industry)
+
+The expedientes system adapts to different industries based on the brand's `industry_type`.
+
+### Industry Types & Expediente Types
+
+| Brand Industry | expediente_tipo | Example Services |
+|---------------|-----------------|------------------|
+| `travel` | `travel` | vuelo, hotel, transfer, tour |
+| `legal` | `legal` | asesoria, tramite, litigio |
+| `medical` | `medical` | consulta, procedimiento |
+| `education` | `education` | curso, certificacion |
+| `other` | `other` | servicio_general |
+
+### Database Constraints (CRITICAL)
+
+```sql
+-- expedientes.expediente_tipo constraint
+CHECK (expediente_tipo IN ('travel', 'legal', 'medical', 'education', 'other'))
+
+-- expedientes.expediente_estado constraint
+CHECK (expediente_estado IN ('abierto', 'cerrado', 'cancelado'))
+```
+
+⚠️ **NEVER use values outside these constraints** or INSERT will fail with `23514` error.
+
+### Enhanced create_expediente Flow
+
+The tool auto-detects `expediente_tipo` from the brand's `industry_type` and can create nested entities:
+
+```
+1. Fetch brand.industry_type → determines expediente_tipo
+2. Create expediente with correct tipo
+3. If service_type_code provided → create expediente_servicio
+4. If beneficiarios provided → create/find beneficiarios + link to expediente
+```
+
+**Example payload:**
+```json
+{
+  "expediente_nombre": "Viaje Rio Feb 2026",
+  "customer_id": "uuid",
+  "start_date": "2026-02-01",
+  "description": "2 adultos, vuelo + hotel todo incluido",
+  "service_type_code": "vuelo",
+  "service_data": {
+    "service_name": "Vuelo SCL-GIG ida/vuelta",
+    "departure_city": "Santiago",
+    "arrival_city": "Rio de Janeiro",
+    "unit_price": 450000,
+    "quantity": 2
+  },
+  "beneficiarios": [
+    {"first_name": "Juan", "last_name": "Pérez", "document_number": "12345678-9"}
+  ]
+}
+```
+
+### Related Tables
+
+- `expedientes` - Main case/project record
+- `expediente_servicios` - Services within an expediente
+- `service_types` - Available service types per brand (filtered by industry)
+- `beneficiarios` - Master table of people (reusable)
+- `expediente_beneficiarios` - Junction table linking beneficiaries to expedientes
 
 ## Gotchas
 
