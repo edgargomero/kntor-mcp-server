@@ -216,7 +216,7 @@ export async function executeIdentifyCustomer(
           }
         }),
         // Get open expedientes
-        fetch(`${env.SUPABASE_URL}/rest/v1/expedientes?select=id,expediente_codigo,expediente_nombre,expediente_tipo,expediente_estado,departure_date,description,notes&customer_id=eq.${customer.id}&expediente_estado=in.(pending,confirmed,in_progress)&order=created_at.desc&limit=5`, {
+        fetch(`${env.SUPABASE_URL}/rest/v1/expedientes?select=id,expediente_codigo,expediente_nombre,expediente_tipo,expediente_estado,departure_date,description,notes&customer_id=eq.${customer.id}&expediente_estado=eq.abierto&order=created_at.desc&limit=5`, {
           headers: {
             'apikey': env.SUPABASE_SERVICE_ROLE_KEY,
             'Authorization': `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`
