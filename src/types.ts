@@ -21,6 +21,22 @@ export interface Env {
 }
 
 /**
+ * Service type available for the brand
+ */
+export interface ServiceType {
+  code: string
+  name: string
+  category: string
+  subcategory?: string | null
+  description?: string | null
+}
+
+/**
+ * Industry types (shared with brands.industry_type and expedientes.expediente_tipo)
+ */
+export type IndustryType = 'travel' | 'legal' | 'medical' | 'education' | 'other'
+
+/**
  * Result from validate_mcp_api_key RPC
  */
 export interface ApiKeyValidationResult {
@@ -31,6 +47,8 @@ export interface ApiKeyValidationResult {
   brand_id?: string
   brand_name?: string
   brand_domain?: string
+  brand_industry_type?: IndustryType
+  service_types?: ServiceType[]
   key_name?: string
   tier?: 'free' | 'starter' | 'pro' | 'enterprise'
   monthly_limit?: number
@@ -66,6 +84,8 @@ export interface MCPContext {
   apiKeyId: string
   brandId: string
   brandName: string
+  brandIndustryType: IndustryType
+  serviceTypes: ServiceType[]
   tier: string
   userId: string       // From API key creator
   userEmail: string

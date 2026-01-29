@@ -49,11 +49,19 @@ import {
   type UpdateFunnelStageInput
 } from './update-funnel-stage'
 
+import {
+  getBrandContextTool,
+  executeGetBrandContext,
+  GetBrandContextInputSchema,
+  type GetBrandContextInput
+} from './get-brand-context'
+
 /**
  * All available tools
  */
 export const tools = [
-  identifyCustomerTool,  // First - use this to check before creating
+  getBrandContextTool,   // First - get available service types
+  identifyCustomerTool,  // Check customer exists before creating
   createCustomerTool,
   updateFunnelStageTool, // Move customer in sales funnel
   searchCustomersTool,
@@ -74,6 +82,10 @@ type ToolExecutor = (
  * Map of tool names to their executors
  */
 const toolExecutors: Record<string, ToolExecutor> = {
+  get_brand_context: async (input, context, env) => {
+    const parsed = GetBrandContextInputSchema.parse(input)
+    return executeGetBrandContext(parsed, context, env)
+  },
   identify_customer: async (input, context, env) => {
     const parsed = IdentifyCustomerInputSchema.parse(input)
     return executeIdentifyCustomer(parsed, context, env)
@@ -138,6 +150,7 @@ export async function executeTool(
 
 // Re-export types
 export type {
+  GetBrandContextInput,
   IdentifyCustomerInput,
   CreateCustomerInput,
   UpdateFunnelStageInput,

@@ -225,11 +225,13 @@ async function handleMCPMessage(
         })
       }
 
-      // Build context from API key validation (includes user info from API key creator)
+      // Build context from API key validation (includes user info, industry type, and service types)
       const context: MCPContext = {
         apiKeyId: apiKeyResult.api_key_id!,
         brandId: apiKeyResult.brand_id!,
         brandName: apiKeyResult.brand_name!,
+        brandIndustryType: apiKeyResult.brand_industry_type || 'other',
+        serviceTypes: apiKeyResult.service_types || [],
         tier: apiKeyResult.tier!,
         userId: apiKeyResult.user_id!,
         userEmail: apiKeyResult.user_email || '',
